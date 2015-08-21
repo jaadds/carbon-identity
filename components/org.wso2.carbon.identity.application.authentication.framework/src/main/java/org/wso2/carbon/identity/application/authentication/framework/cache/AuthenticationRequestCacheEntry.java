@@ -28,20 +28,20 @@ import org.wso2.carbon.identity.application.common.cache.CacheEntry;
 public class AuthenticationRequestCacheEntry extends CacheEntry {
 
     private static final long serialVersionUID = 358933465378244386L;
-    //AuthenticationRequest keep all the data related to
-    private AuthenticationRequest authenticationRequest;
+	//AuthenticationRequest keep all the data related to
+	private AuthenticationRequest authenticationRequest;
 
-    public AuthenticationRequest getAuthenticationRequest() {
-        return authenticationRequest;
-    }
+	public AuthenticationRequest getAuthenticationRequest() {
+		return authenticationRequest;
+	}
 
-    public void setAuthenticationRequest(AuthenticationRequest
-                                                 authenticationRequest) {
-        this.authenticationRequest = authenticationRequest;
-    }
+	public void setAuthenticationRequest(AuthenticationRequest
+	                                       authenticationRequest) {
+		this.authenticationRequest = authenticationRequest;
+	}
 
-    public AuthenticationRequestCacheEntry(AuthenticationRequest requestContext){
-        this.authenticationRequest = requestContext;
-    }
+	public AuthenticationRequestCacheEntry(AuthenticationRequest requestContext){
+		this.authenticationRequest = requestContext;
+	}
 
 }

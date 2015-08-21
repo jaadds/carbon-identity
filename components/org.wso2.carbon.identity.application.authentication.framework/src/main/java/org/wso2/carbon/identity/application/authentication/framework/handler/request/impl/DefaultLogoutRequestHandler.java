@@ -91,21 +91,17 @@ public class DefaultLogoutRequestHandler implements LogoutRequestHandler {
                 if(authenticatorConfig==null){
                     authenticatorConfig = sequenceConfig.getAuthenticatedReqPathAuthenticator();
                 }
-                ApplicationAuthenticator authenticator =
-                        authenticatorConfig.getApplicationAuthenticator();
+                ApplicationAuthenticator authenticator = authenticatorConfig.getApplicationAuthenticator();
 
                 String idpName = stepConfig.getAuthenticatedIdP();
-                //TODO: Need to fix occurrences where idPName becomes "null"
-                if((idpName == null || "null".equalsIgnoreCase(idpName) || idpName.isEmpty()) &&
-                        sequenceConfig.getAuthenticatedReqPathAuthenticator() != null){
-                    idpName = FrameworkConstants.LOCAL_IDP_NAME;
+                if((idpName==null||"null".equalsIgnoreCase(idpName)||"".equalsIgnoreCase(idpName))&&sequenceConfig.getAuthenticatedReqPathAuthenticator()!=null){
+                    idpName=FrameworkConstants.LOCAL_IDP_NAME;
                 }
-                ExternalIdPConfig externalIdPConfig = ConfigurationFacade.getInstance()
-                        .getIdPConfigByName(idpName, context.getTenantDomain());
+                ExternalIdPConfig externalIdPConfig = ConfigurationFacade.getInstance().getIdPConfigByName(
+                        idpName, context.getTenantDomain());
                 context.setExternalIdP(externalIdPConfig);
-                context.setAuthenticatorProperties(FrameworkUtils
-                        .getAuthenticatorPropertyMapFromIdP(
-                                externalIdPConfig, authenticator.getName()));
+                context.setAuthenticatorProperties(FrameworkUtils.getAuthenticatorPropertyMapFromIdP(externalIdPConfig,
+                        authenticator.getName()));
                 context.setStateInfo(authenticatorConfig.getAuthenticatorStateInfo());
 
                 try {
@@ -159,31 +155,44 @@ public class DefaultLogoutRequestHandler implements LogoutRequestHandler {
         authenticationResult.setLoggedOut(true);
 
         SequenceConfig sequenceConfig = context.getSequenceConfig();
-        authenticationResult.setSaaSApp(sequenceConfig.getApplicationConfig().isSaaSApp());
+        if(sequenceConfig != null) {
+            authenticationResult.setSaaSApp(sequenceConfig.getApplicationConfig().isSaaSApp());
 
-        authenticationResult.setAuthenticatedUserTenantDomain(sequenceConfig.getAuthenticatedUserTenantDomain());
+            authenticationResult.setAuthenticatedUserTenantDomain(sequenceConfig.getAuthenticatedUserTenantDomain());
 
-        // Put the result in the
-        FrameworkUtils.addAuthenticationResultToCache(context.getCallerSessionKey(), authenticationResult,
-                                FrameworkUtils.getMaxInactiveInterval());
+            // Put the result in the
+            FrameworkUtils.addAuthenticationResultToCache(context.getCallerSessionKey(), authenticationResult,
+                                                          FrameworkUtils.getMaxInactiveInterval());
 
-        String authenticatedUserTenantDomain = sequenceConfig.getAuthenticatedUserTenantDomain();
-        if(authenticatedUserTenantDomain == null) {
-            PrivilegedCarbonContext.getThreadLocalCarbonContext().getTenantDomain();
+            String authenticatedUserTenantDomain = sequenceConfig.getAuthenticatedUserTenantDomain();
+            if (authenticatedUserTenantDomain == null) {
+                authenticatedUserTenantDomain = PrivilegedCarbonContext.getThreadLocalCarbonContext().getTenantDomain();
+            }
+
+            String auditData = "\"" + "ContextIdentifier" + "\" : \"" + context.getContextIdentifier()
+                               + "\",\"" + "AuthenticatedUser" + "\" : \"" + sequenceConfig.getAuthenticatedUser()
+                               + "\",\"" + "AuthenticatedUserTenantDomain" + "\" : \"" + authenticatedUserTenantDomain
+                               + "\",\"" + "ServiceProviderName" + "\" : \"" + context.getServiceProviderName()
+                               + "\",\"" + "RequestType" + "\" : \"" + context.getRequestType()
+                               + "\",\"" + "RelyingParty" + "\" : \"" + context.getRelyingParty()
+                               + "\",\"" + "AuthenticatedIdPs" + "\" : \"" + sequenceConfig.getAuthenticatedIdPs()
+                               + "\"";
+
+            AUDIT_LOG.info(String.format(FrameworkConstants.AUDIT_MESSAGE,
+                                         sequenceConfig.getAuthenticatedUser() + '@' + authenticatedUserTenantDomain, "Logout",
+                                         "ApplicationAuthenticationFramework", auditData, FrameworkConstants.AUDIT_SUCCESS));
+        } else {
+            //When logout using a GET to /samlsso endpoint - No Logout Request
+            FrameworkUtils.addAuthenticationResultToCache(context.getCallerSessionKey(), authenticationResult,
+                                                          FrameworkUtils.getMaxInactiveInterval());
+            String auditData = "\"" + "ContextIdentifier" + "\" : \"" + context.getContextIdentifier()
+                               + "\",\"" + "ServiceProviderName" + "\" : \"" + context.getServiceProviderName()
+                               + "\",\"" + "RequestType" + "\" : \"" + context.getRequestType()
+                               + "\",\"" + "RelyingParty" + "\" : \"" + context.getRelyingParty()
+                               + "\"";
+            AUDIT_LOG.info(String.format(FrameworkConstants.AUDIT_MESSAGE, "", "Logout",
+                                         "ApplicationAuthenticationFramework", auditData, FrameworkConstants.AUDIT_SUCCESS));
         }
-
-        String auditData = "\"" + "ContextIdentifier" + "\" : \"" + context.getContextIdentifier()
-                + "\",\"" + "AuthenticatedUser" + "\" : \"" + sequenceConfig.getAuthenticatedUser()
-                + "\",\"" + "AuthenticatedUserTenantDomain" + "\" : \"" + authenticatedUserTenantDomain
-                + "\",\"" + "ServiceProviderName" + "\" : \"" + context.getServiceProviderName()
-                + "\",\"" + "RequestType" + "\" : \"" + context.getRequestType()
-                + "\",\"" + "RelyingParty" + "\" : \"" + context.getRelyingParty()
-                + "\",\"" + "AuthenticatedIdPs" + "\" : \"" + sequenceConfig.getAuthenticatedIdPs()
-                + "\"";
-
-        AUDIT_LOG.info(String.format(FrameworkConstants.AUDIT_MESSAGE,
-                sequenceConfig.getAuthenticatedUser() + '@' + authenticatedUserTenantDomain, "Logout",
-                "ApplicationAuthenticationFramework", auditData, FrameworkConstants.AUDIT_SUCCESS));
 
         /*
          * TODO Cache retaining is a temporary fix. Remove after Google fixes

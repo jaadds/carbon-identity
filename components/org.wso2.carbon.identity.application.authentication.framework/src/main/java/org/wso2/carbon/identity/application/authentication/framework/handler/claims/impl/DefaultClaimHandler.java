@@ -45,15 +45,18 @@ import org.wso2.carbon.identity.application.authentication.framework.util.Framew
 import org.wso2.carbon.identity.application.common.model.ClaimMapping;
 import org.wso2.carbon.identity.application.mgt.ApplicationConstants;
 import org.wso2.carbon.user.api.ClaimManager;
+import org.wso2.carbon.user.api.RealmConfiguration;
 import org.wso2.carbon.user.api.UserStoreException;
 import org.wso2.carbon.user.api.UserStoreManager;
 import org.wso2.carbon.user.core.UserRealm;
+import org.wso2.carbon.user.core.util.UserCoreUtil;
 import org.wso2.carbon.utils.multitenancy.MultitenantUtils;
 
 public class DefaultClaimHandler implements ClaimHandler {
 
     private static Log log = LogFactory.getLog(DefaultClaimHandler.class);
     private static volatile DefaultClaimHandler instance;
+    private static final String MULTI_ATTRIBUTE_SEPARATOR = "MultiAttributeSeparator";
 
     public static DefaultClaimHandler getInstance() {
         if (instance == null) {
@@ -186,7 +189,9 @@ public class DefaultClaimHandler implements ClaimHandler {
             if (StringUtils.isEmpty(claimValue)) {
                 claimValue = defaultValuesForClaims.get(localClaimURI);
             }
-            localUnfilteredClaims.put(localClaimURI, claimValue);
+            if (!StringUtils.isEmpty(claimValue)) {
+                localUnfilteredClaims.put(localClaimURI, claimValue);
+            }
         }
         // set all locally mapped unfiltered remote claims as a property
         context.setProperty(FrameworkConstants.UNFILTERED_LOCAL_CLAIM_VALUES, localUnfilteredClaims);
@@ -394,6 +399,28 @@ public class DefaultClaimHandler implements ClaimHandler {
             spRequestedClaims = allSPMappedClaims;
         }
 
+        /*
+        * This is a custom change added to pass 'MultipleAttributeSeparator' attribute value to other components,
+        * since we can't get the logged in user in some situations.
+        *
+        * Following components affected from this change -
+        * org.wso2.carbon.identity.application.authentication.endpoint
+        * org.wso2.carbon.identity.provider
+        * org.wso2.carbon.identity.oauth
+        * org.wso2.carbon.identity.oauth.endpoint
+        * org.wso2.carbon.identity.sso.saml
+        * */
+        if (!spRequestedClaims.isEmpty()) {
+            String domain = UserCoreUtil.extractDomainFromName(authenticatedUser);
+            RealmConfiguration realmConfiguration = ((org.wso2.carbon.user.core.UserStoreManager) userStore)
+                    .getSecondaryUserStoreManager(domain).getRealmConfiguration();
+
+            String claimSeparator = realmConfiguration.getUserStoreProperty(MULTI_ATTRIBUTE_SEPARATOR);
+            if (claimSeparator != null && !claimSeparator.trim().isEmpty()) {
+                spRequestedClaims.put(MULTI_ATTRIBUTE_SEPARATOR, claimSeparator);
+            }
+        }
+
         return spRequestedClaims;
     }
 
@@ -542,12 +569,16 @@ public class DefaultClaimHandler implements ClaimHandler {
         } else if(claimMappings == null || claimMappings.isEmpty()){
             return ApplicationConstants.LOCAL_IDP_DEFAULT_CLAIM_DIALECT;
         } else {
+            boolean isAtLeastOneNotEqual = false;
             for(Map.Entry<String,String> entry : claimMappings.entrySet()){
-                if(entry.getKey().equals(entry.getValue())){
-                    return ApplicationConstants.LOCAL_IDP_DEFAULT_CLAIM_DIALECT;
+                if(!entry.getKey().equals(entry.getValue())){
+                    isAtLeastOneNotEqual = true;
+                    break;
                 }
             }
-
+            if(!isAtLeastOneNotEqual){
+                return ApplicationConstants.LOCAL_IDP_DEFAULT_CLAIM_DIALECT;
+            }
         }
         return null;
     }

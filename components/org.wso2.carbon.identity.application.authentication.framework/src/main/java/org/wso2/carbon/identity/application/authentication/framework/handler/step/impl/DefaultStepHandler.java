@@ -210,15 +210,14 @@ public class DefaultStepHandler implements StepHandler {
         if (log.isDebugEnabled()) {
             log.debug("Received domain: " + domain);
         }
-
+        
         SequenceConfig sequenceConfig = context.getSequenceConfig();
         StepConfig stepConfig = sequenceConfig.getStepMap().get(context.getCurrentStep());
         List<AuthenticatorConfig> authConfigList = stepConfig.getAuthenticatorList();
-
-
+        
         String authenticatorNames = FrameworkUtils.getAuthenticatorIdPMappingString(authConfigList);
         String redirectURL = ConfigurationFacade.getInstance().getAuthenticationEndpointURL();
-
+        
         if (domain.trim().length() == 0) {
             //SP hasn't specified a domain. We assume it wants to get the domain from the user
             try {
@@ -228,9 +227,10 @@ public class DefaultStepHandler implements StepHandler {
             } catch (IOException e) {
                 throw new FrameworkException(e.getMessage(), e);
             }
-
+            
             return;
         }
+
         // call home realm discovery handler to retrieve the realm
         String homeRealm = FrameworkUtils.getHomeRealmDiscoverer().discover(domain);
 
@@ -278,7 +278,7 @@ public class DefaultStepHandler implements StepHandler {
         if (log.isDebugEnabled()) {
             log.debug("An IdP was not found for the sent domain. Sending to the domain page");
         }
-
+        
         String errorMsg = "domain.unknown";
 
         try {
@@ -341,6 +341,7 @@ public class DefaultStepHandler implements StepHandler {
 
         SequenceConfig sequenceConfig = context.getSequenceConfig();
         int currentStep = context.getCurrentStep();
+        boolean isNoneCanHandle = true;
         StepConfig stepConfig = sequenceConfig.getStepMap().get(currentStep);
 
         for (AuthenticatorConfig authenticatorConfig : stepConfig.getAuthenticatorList()) {
@@ -351,6 +352,7 @@ public class DefaultStepHandler implements StepHandler {
             if (authenticator != null && authenticator.canHandle(request)
                     && (context.getCurrentAuthenticator() == null || authenticator.getName()
                             .equals(context.getCurrentAuthenticator()))) {
+                isNoneCanHandle = false;
 
                 if (log.isDebugEnabled()) {
                     log.debug(authenticator.getName() + " can handle the request.");
@@ -360,7 +362,10 @@ public class DefaultStepHandler implements StepHandler {
                 break;
             }
         }
-        // TODO: What if none canHandle?
+
+        if (isNoneCanHandle) {
+            throw new FrameworkException("No authenticator can handle the request in step :  " + currentStep);
+        }
     }
 
     protected void doAuthentication(HttpServletRequest request, HttpServletResponse response,

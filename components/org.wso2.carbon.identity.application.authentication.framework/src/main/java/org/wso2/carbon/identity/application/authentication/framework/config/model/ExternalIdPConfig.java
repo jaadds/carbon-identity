@@ -22,6 +22,7 @@ import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.commons.lang.StringUtils;
 import org.wso2.carbon.identity.application.common.model.Claim;
 import org.wso2.carbon.identity.application.common.model.ClaimConfig;
 import org.wso2.carbon.identity.application.common.model.ClaimMapping;
@@ -29,6 +30,7 @@ import org.wso2.carbon.identity.application.common.model.IdentityProvider;
 import org.wso2.carbon.identity.application.common.model.JustInTimeProvisioningConfig;
 import org.wso2.carbon.identity.application.common.model.PermissionsAndRoleConfig;
 import org.wso2.carbon.identity.application.common.model.RoleMapping;
+import org.wso2.carbon.user.core.util.UserCoreUtil;
 
 public class ExternalIdPConfig implements Serializable {
 
@@ -60,8 +62,13 @@ public class ExternalIdPConfig implements Serializable {
 
         if (roleMappings != null && roleMappings.length > 0) {
             for (RoleMapping roleMapping : roleMappings) {
-                this.roleMappings.put(roleMapping.getRemoteRole(), roleMapping.getLocalRole()
-                        .getLocalRoleName());
+                if (StringUtils.isNotEmpty(roleMapping.getLocalRole().getUserStoreId())) {
+                    this.roleMappings.put(roleMapping.getRemoteRole(), UserCoreUtil.addDomainToName(roleMapping
+                            .getLocalRole().getLocalRoleName(), roleMapping.getLocalRole().getUserStoreId()));
+                } else {
+                    this.roleMappings.put(roleMapping.getRemoteRole(), roleMapping.getLocalRole()
+                            .getLocalRoleName());
+                }
             }
         }
     }

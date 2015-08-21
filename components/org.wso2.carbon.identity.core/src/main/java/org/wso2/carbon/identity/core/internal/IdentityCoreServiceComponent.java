@@ -22,12 +22,10 @@ import org.osgi.framework.BundleContext;
 import org.osgi.service.component.ComponentContext;
 import org.wso2.carbon.identity.base.IdentityConstants;
 import org.wso2.carbon.identity.core.persistence.JDBCPersistenceManager;
-import org.wso2.carbon.identity.core.um.listener.IdentityUserMgtListener;
 import org.wso2.carbon.identity.core.util.IdentityTenantUtil;
 import org.wso2.carbon.identity.core.util.IdentityUtil;
 import org.wso2.carbon.registry.core.service.RegistryService;
 import org.wso2.carbon.security.config.SecurityConfigAdmin;
-import org.wso2.carbon.user.core.listener.UserStoreManagerListener;
 import org.wso2.carbon.user.core.service.RealmService;
 
 /**
@@ -62,8 +60,6 @@ public class IdentityCoreServiceComponent {
         }
         try {
             IdentityUtil.populateProperties();
-            IdentityUserMgtListener userMgtListener = new IdentityUserMgtListener();
-            ctxt.getBundleContext().registerService(UserStoreManagerListener.class.getName(), userMgtListener, null);
             bundleContext = ctxt.getBundleContext();
 
             // Identity database schema creation can be avoided by setting

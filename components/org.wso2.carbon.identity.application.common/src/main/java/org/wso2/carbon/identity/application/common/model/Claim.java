@@ -86,8 +86,8 @@ public class Claim implements Serializable {
     }
 
     /*
-     * <Claim> <ClaimUri></ClaimUri></Claim>
-     */
+         * <Claim> <ClaimUri></ClaimUri></Claim>
+         */
     public static Claim build(OMElement claimOM) {
 
         if (claimOM == null) {
@@ -110,4 +110,5 @@ public class Claim implements Serializable {
         return claim;
 
     }
+
 }

@@ -16,6 +16,7 @@
 
 package org.wso2.carbon.identity.oauth.listener;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.wso2.carbon.context.PrivilegedCarbonContext;
@@ -24,8 +25,10 @@ import org.wso2.carbon.identity.oauth2.IdentityOAuth2Exception;
 import org.wso2.carbon.identity.oauth2.dao.TokenMgtDAO;
 import org.wso2.carbon.identity.oauth2.model.AccessTokenDO;
 import org.wso2.carbon.identity.oauth2.util.OAuth2Util;
+import org.wso2.carbon.user.core.UserCoreConstants;
 import org.wso2.carbon.user.core.UserStoreException;
 import org.wso2.carbon.user.core.common.AbstractUserOperationEventListener;
+import org.wso2.carbon.user.core.util.UserCoreUtil;
 
 import java.util.Set;
 
@@ -56,16 +59,22 @@ public class IdentityOathEventListener extends AbstractUserOperationEventListene
 
         TokenMgtDAO tokenMgtDAO = new TokenMgtDAO();
 
+        String userStoreDomain = UserCoreUtil.getDomainName(userStoreManager.getRealmConfiguration());
         String tenantDomain = PrivilegedCarbonContext.getThreadLocalCarbonContext().getTenantDomain();
-        username = (username + "@" + tenantDomain).toLowerCase();
 
-        String userStoreDomain = null;
-        if (OAuth2Util.checkAccessTokenPartitioningEnabled() && OAuth2Util.checkUserNameAssertionEnabled()) {
+        username = StringUtils.isNotEmpty(userStoreDomain) ?
+                userStoreDomain + UserCoreConstants.DOMAIN_SEPARATOR + username : username;
+        username = StringUtils.isNotEmpty(tenantDomain) ?
+                username + UserCoreConstants.TENANT_DOMAIN_COMBINER + tenantDomain : username;
+        username = username.toLowerCase();
+
+        userStoreDomain = null;
+        if (OAuth2Util.checkUserNameAssertionEnabled() && OAuth2Util.checkAccessTokenPartitioningEnabled()) {
             try {
                 userStoreDomain = OAuth2Util.getUserStoreDomainFromUserId(username);
             } catch (IdentityOAuth2Exception e) {
-                throw new UserStoreException(
-                        "Error occurred while getting user store domain for User ID : " + username, e);
+                log.error("Error occurred while getting user store domain for User ID : " + username, e);
+                return true;
             }
         }
 

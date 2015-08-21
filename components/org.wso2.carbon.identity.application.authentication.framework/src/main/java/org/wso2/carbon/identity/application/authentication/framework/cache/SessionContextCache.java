@@ -36,18 +36,15 @@ public class SessionContextCache extends BaseCache<CacheKey, CacheEntry> {
 
     private SessionContextCache(String cacheName, int timeout) {
         super(cacheName, timeout);
-        useCache = !Boolean.parseBoolean(IdentityUtil.getProperty(
-                "JDBCPersistenceManager.SessionDataPersist.Only"));
+        useCache = !Boolean.parseBoolean(IdentityUtil.getProperty("JDBCPersistenceManager.SessionDataPersist.Only"));
         if(IdentityUtil.getProperty("SessionContextCache.Enable") != null){
-            useCache = Boolean.parseBoolean(
-                    IdentityUtil.getProperty("SessionContextCache.Enable"));
+            useCache = Boolean.parseBoolean(IdentityUtil.getProperty("SessionContextCache.Enable"));
         }
     }
 
     private SessionContextCache(String cacheName, int timeout, int capacity) {
         super(cacheName, timeout, capacity);
-        useCache = !Boolean.parseBoolean(IdentityUtil.getProperty(
-                "JDBCPersistenceManager.SessionDataPersist.Only"));
+        useCache = !Boolean.parseBoolean(IdentityUtil.getProperty("JDBCPersistenceManager.SessionDataPersist.Only"));
         if(IdentityUtil.getProperty("SessionContextCache.Enable") != null){
             useCache = Boolean.parseBoolean(IdentityUtil.getProperty("SessionContextCache.Enable"));
         }
@@ -59,8 +56,7 @@ public class SessionContextCache extends BaseCache<CacheKey, CacheEntry> {
 				if (instance == null) {
                     int capacity = 2000;
                     try{
-                        capacity = Integer.parseInt(
-                                IdentityUtil.getProperty("SessionContextCache.Capacity"));
+                        capacity = Integer.parseInt(IdentityUtil.getProperty("SessionContextCache.Capacity"));
                     } catch (Exception e){
                         //ignore
                     }
@@ -95,7 +91,6 @@ public class SessionContextCache extends BaseCache<CacheKey, CacheEntry> {
             }
         }
         return cacheEntry;
-
     }
 
     @Override

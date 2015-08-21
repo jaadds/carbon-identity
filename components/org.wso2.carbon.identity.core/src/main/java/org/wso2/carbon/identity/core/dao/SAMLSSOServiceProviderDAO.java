@@ -31,6 +31,10 @@ import org.wso2.carbon.registry.core.exceptions.RegistryException;
 import org.wso2.carbon.registry.core.session.UserRegistry;
 import org.wso2.carbon.user.api.UserStoreException;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
 public class SAMLSSOServiceProviderDAO extends AbstractDAO<SAMLSSOServiceProviderDO> {
 
     private static Log log = LogFactory.getLog(SAMLSSOServiceProviderDAO.class);
@@ -43,8 +47,29 @@ public class SAMLSSOServiceProviderDAO extends AbstractDAO<SAMLSSOServiceProvide
         SAMLSSOServiceProviderDO serviceProviderDO = new SAMLSSOServiceProviderDO();
         serviceProviderDO.setIssuer(resource
                 .getProperty(IdentityRegistryResources.PROP_SAML_SSO_ISSUER));
-        serviceProviderDO.setAssertionConsumerUrl(resource
-                .getProperty(IdentityRegistryResources.PROP_SAML_SSO_ASSERTION_CONS_URL));
+
+        // Existing service providers - before multiple ACS urls feature
+        if(resource.getProperty(IdentityRegistryResources.PROP_SAML_SSO_ASSERTION_CONS_URL) != null) {
+            serviceProviderDO.setAssertionConsumerUrl(resource.getProperty(IdentityRegistryResources
+                                                                                   .PROP_SAML_SSO_ASSERTION_CONS_URL));
+        } else if(resource.getProperty(IdentityRegistryResources.PROP_SAML_SSO_ASSERTION_CONS_URLS) != null) {
+            List<String> acsUrls = resource.getPropertyValues(IdentityRegistryResources
+                                                                      .PROP_SAML_SSO_ASSERTION_CONS_URLS);
+            if(acsUrls.size() > 1) {
+                StringBuilder acsUrlsBuilder = new StringBuilder();
+                for(String acsUrl : acsUrls) {
+                    if(acsUrlsBuilder.length() > 0) {
+                        acsUrlsBuilder.append(",").append(acsUrl);
+                    } else {
+                        acsUrlsBuilder.append(acsUrl);
+                    }
+                }
+                serviceProviderDO.setAssertionConsumerUrl(acsUrlsBuilder.toString());
+            } else {
+                serviceProviderDO.setAssertionConsumerUrl(acsUrls.get(0));
+            }
+        }
+
         serviceProviderDO.setCertAlias(resource
                 .getProperty(IdentityRegistryResources.PROP_SAML_SSO_ISSUER_CERT_ALIAS));
 
@@ -161,8 +186,16 @@ public class SAMLSSOServiceProviderDAO extends AbstractDAO<SAMLSSOServiceProvide
             resource = registry.newResource();
             resource.addProperty(IdentityRegistryResources.PROP_SAML_SSO_ISSUER,
                     serviceProviderDO.getIssuer());
-            resource.addProperty(IdentityRegistryResources.PROP_SAML_SSO_ASSERTION_CONS_URL,
-                    serviceProviderDO.getAssertionConsumerUrl());
+
+            if(serviceProviderDO.getAssertionConsumerUrl().contains(",")) {
+                List<String> acsUrls = Arrays.asList(serviceProviderDO.getAssertionConsumerUrl().split(","));
+                resource.setProperty(IdentityRegistryResources.PROP_SAML_SSO_ASSERTION_CONS_URLS, acsUrls);
+            } else {
+                List<String> acsUrls = new ArrayList<String>();
+                acsUrls.add(serviceProviderDO.getAssertionConsumerUrl());
+                resource.setProperty(IdentityRegistryResources.PROP_SAML_SSO_ASSERTION_CONS_URLS, acsUrls);
+            }
+
             resource.addProperty(IdentityRegistryResources.PROP_SAML_SSO_ISSUER_CERT_ALIAS,
                     serviceProviderDO.getCertAlias());
             resource.addProperty(IdentityRegistryResources.PROP_SAML_SSO_LOGOUT_URL,
@@ -295,7 +328,6 @@ public class SAMLSSOServiceProviderDAO extends AbstractDAO<SAMLSSOServiceProvide
      */
     public boolean removeServiceProvider(String issuer) throws IdentityException {
 
-		//Should try to use isBlank(..)
         if(StringUtils.isEmpty(issuer)){
             throw new IllegalArgumentException("Trying to delete issuer \'" + issuer + "\'");
         }
@@ -362,7 +394,6 @@ public class SAMLSSOServiceProviderDAO extends AbstractDAO<SAMLSSOServiceProvide
             throw new IdentityException("Error occurred while getting tenant domain from tenant ID : " +
                     userRegistry.getTenantId(), e);
         }
-
         return serviceProviderDO;
     }
 

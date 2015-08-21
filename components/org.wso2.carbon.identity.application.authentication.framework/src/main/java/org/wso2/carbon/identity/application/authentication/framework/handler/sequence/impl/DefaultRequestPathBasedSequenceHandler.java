@@ -111,7 +111,6 @@ public class DefaultRequestPathBasedSequenceHandler implements RequestPathBasedS
                     authenticatedIdPData.setAuthenticator(reqPathAuthenticator);
                     
                     seqConfig.setAuthenticatedReqPathAuthenticator(reqPathAuthenticator);
-
                     
                     context.getCurrentAuthenticatedIdPs().put(FrameworkConstants.LOCAL_IDP_NAME,
                             authenticatedIdPData);

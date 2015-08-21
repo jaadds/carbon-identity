@@ -11,6 +11,7 @@ import java.util.Map.Entry;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.wso2.carbon.context.PrivilegedCarbonContext;
@@ -25,6 +26,7 @@ import org.wso2.carbon.identity.application.authentication.framework.config.mode
 import org.wso2.carbon.identity.application.authentication.framework.context.AuthenticationContext;
 import org.wso2.carbon.identity.application.authentication.framework.exception.FrameworkException;
 import org.wso2.carbon.identity.application.authentication.framework.handler.sequence.StepBasedSequenceHandler;
+import org.wso2.carbon.identity.application.authentication.framework.internal.FrameworkServiceComponent;
 import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkConstants;
 import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkUtils;
 import org.wso2.carbon.identity.application.common.model.ClaimMapping;
@@ -33,12 +35,18 @@ import org.wso2.carbon.identity.application.common.util.IdentityApplicationManag
 import org.wso2.carbon.identity.application.mgt.ApplicationConstants;
 import org.wso2.carbon.identity.user.profile.mgt.UserProfileAdmin;
 import org.wso2.carbon.identity.user.profile.mgt.UserProfileException;
+import org.wso2.carbon.user.api.RealmConfiguration;
+import org.wso2.carbon.user.api.UserRealm;
+import org.wso2.carbon.user.api.UserStoreException;
+import org.wso2.carbon.user.core.UserStoreManager;
+import org.wso2.carbon.user.core.tenant.TenantManager;
 import org.wso2.carbon.utils.multitenancy.MultitenantUtils;
 
 public class DefaultStepBasedSequenceHandler implements StepBasedSequenceHandler {
 
     private static Log log = LogFactory.getLog(DefaultStepBasedSequenceHandler.class);
     private static volatile DefaultStepBasedSequenceHandler instance;
+    private static final String MULTI_ATTRIBUTE_SEPARATOR = "MultiAttributeSeparator";
 
     public static DefaultStepBasedSequenceHandler getInstance() {
 
@@ -246,21 +254,24 @@ public class DefaultStepBasedSequenceHandler implements StepBasedSequenceHandler
 
                     subjectFoundInStep = true;
                     String associatedID = null;
+                    String spTenantDomain = context.getTenantDomain();
 
                     // now we know the value of the subject - from the external identity provider.
-
                     if (sequenceConfig.getApplicationConfig().isAlwaysSendMappedLocalSubjectId()) {
-
-                        // okay - now we need to find out the corresponding mapped local subject
-                        // identifier.
-
-                        UserProfileAdmin userProfileAdmin = UserProfileAdmin.getInstance();
                         try {
-                            associatedID = userProfileAdmin.getNameAssociatedWith(
-                                    stepConfig.getAuthenticatedIdP(),
+                            PrivilegedCarbonContext.startTenantFlow();
+                            PrivilegedCarbonContext carbonContext = PrivilegedCarbonContext.getThreadLocalCarbonContext();
+                            carbonContext.setTenantDomain(spTenantDomain, true);
+
+                            UserProfileAdmin userProfileAdmin = UserProfileAdmin.getInstance();
+                            associatedID = userProfileAdmin.getNameAssociatedWith(stepConfig.getAuthenticatedIdP(),
                                     originalExternalIdpSubjectValueForThisStep);
-                        } catch (UserProfileException e) {
-                            throw new FrameworkException("Error while getting associated ID");
+                            associatedID = associatedID + '@' + spTenantDomain;
+                        }catch (UserProfileException e) {
+                            throw new FrameworkException("Error while getting local user for associated ID : " +
+                                    originalExternalIdpSubjectValueForThisStep, e);
+                        } finally {
+                            PrivilegedCarbonContext.endTenantFlow();
                         }
                     }
 
@@ -268,8 +279,6 @@ public class DefaultStepBasedSequenceHandler implements StepBasedSequenceHandler
                     if (associatedID != null && associatedID.trim().length() > 0) {
 
                         // in this case associatedID is a local user name - belongs to a tenant in IS.
-                        String tenantDomain = MultitenantUtils.getTenantDomain(associatedID);
-
                         handleClaimMappings(stepConfig, context, extAttibutesValueMap, true);
                         localClaimValues = (Map<String, String>) context
                                 .getProperty(FrameworkConstants.UNFILTERED_LOCAL_CLAIM_VALUES);
@@ -278,10 +287,10 @@ public class DefaultStepBasedSequenceHandler implements StepBasedSequenceHandler
                                 .getProperty(FrameworkConstants.UNFILTERED_IDP_CLAIM_VALUES);
                         // we found an associated user identifier
                         sequenceConfig.setAuthenticatedUser(associatedID);
-                        sequenceConfig.setAuthenticatedUserTenantDomain(tenantDomain);
+                        sequenceConfig.setAuthenticatedUserTenantDomain(spTenantDomain);
                         // TODO : this may not be needed.
                         stepConfig.setAuthenticatedUser(associatedID);
-                        stepConfig.setAuthenticatedUserTenantDomain(tenantDomain);
+                        stepConfig.setAuthenticatedUserTenantDomain(spTenantDomain);
 
                         if (log.isDebugEnabled()) {
                             log.debug("Setting associated authenticated user and tenant domain " +
@@ -350,7 +359,7 @@ public class DefaultStepBasedSequenceHandler implements StepBasedSequenceHandler
                     String idpRoleClaimUri = getIdpRoleClaimUri(externalIdPConfig);
 
                     List<String> locallyMappedUserRoles = getLocallyMappedUserRoles(sequenceConfig,
-                            externalIdPConfig, extAttibutesValueMap, idpRoleClaimUri);
+                            externalIdPConfig, extAttibutesValueMap, idpRoleClaimUri, context.getTenantDomain());
 
                     if (idpRoleClaimUri != null && getServiceProviderMappedUserRoles(sequenceConfig, locallyMappedUserRoles) != null) {
                         extAttibutesValueMap.put(
@@ -455,7 +464,6 @@ public class DefaultStepBasedSequenceHandler implements StepBasedSequenceHandler
         } else if(subjectClaimURI != null && !subjectClaimURI.isEmpty()){
             log.warn("Subject claim could not be found. Defaulting to Name Identifier.");
         }
-
     }
 
     /**
@@ -570,8 +578,29 @@ public class DefaultStepBasedSequenceHandler implements StepBasedSequenceHandler
      */
     protected List<String> getLocallyMappedUserRoles(SequenceConfig sequenceConfig,
             ExternalIdPConfig externalIdPConfig, Map<String, String> extAttibutesValueMap,
-            String idpRoleClaimUri) throws FrameworkException {
+            String idpRoleClaimUri, String tenantDomain) throws FrameworkException {
 
+        String provisioningUserStoreId = externalIdPConfig.getProvisioningUserStoreId();
+        String claimSeparator = null;
+        TenantManager tenantmanager = FrameworkServiceComponent.getRealmService().getTenantManager();
+        try {
+            UserRealm userRealm = FrameworkServiceComponent.getRealmService().getTenantUserRealm(tenantmanager.getTenantId
+                    (tenantDomain));
+            UserStoreManager userStoreManager = (UserStoreManager) userRealm.getUserStoreManager();
+
+            if (StringUtils.isNotEmpty(provisioningUserStoreId)) {
+                userStoreManager = userStoreManager.getSecondaryUserStoreManager(provisioningUserStoreId);
+            }
+            claimSeparator = userStoreManager.getRealmConfiguration().getUserStoreProperty(MULTI_ATTRIBUTE_SEPARATOR);
+        } catch (UserStoreException e) {
+            if (log.isDebugEnabled()) {
+                log.debug("Exception while get MultiAttributeSeparator property value from user store ", e);
+            }
+        }
+
+        if (StringUtils.isEmpty(claimSeparator)) {
+            claimSeparator = ",";
+        }
         String idpRoleAttrValue = null;
 
         if (idpRoleClaimUri == null) {
@@ -585,7 +614,7 @@ public class DefaultStepBasedSequenceHandler implements StepBasedSequenceHandler
         String[] idpRoles = null;
 
         if (idpRoleAttrValue != null) {
-            idpRoles = idpRoleAttrValue.split(",");
+            idpRoles = idpRoleAttrValue.split(claimSeparator);
         } else {
             // no identity provider role values found.
             return new ArrayList<String>();

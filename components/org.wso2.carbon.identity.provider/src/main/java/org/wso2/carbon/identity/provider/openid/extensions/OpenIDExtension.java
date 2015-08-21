@@ -43,6 +43,8 @@ import org.wso2.carbon.utils.multitenancy.MultitenantUtils;
 
 public abstract class OpenIDExtension {
 
+    private static final String MULTI_ATTRIBUTE_SEPARATOR = "MultiAttributeSeparator";
+
 	/**
 	 * Creates an instance of MessageExtension for the OpenID authentication
 	 * response
@@ -114,6 +116,9 @@ public abstract class OpenIDExtension {
 
         if(requiredClaims.isEmpty()){
             for(Map.Entry<ClaimMapping, String> entry : receivedClaims.entrySet()){
+                if (MULTI_ATTRIBUTE_SEPARATOR.equals(entry.getKey().getRemoteClaim().getClaimUri())) {
+                    continue;
+                }
                 OpenIDClaimDTO openIDClaimDTO = new OpenIDClaimDTO();
                 openIDClaimDTO.setClaimUri(entry.getKey().getRemoteClaim().getClaimUri());
                 openIDClaimDTO.setClaimValue(entry.getValue());

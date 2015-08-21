@@ -207,8 +207,13 @@ public class JWTTokenGenerator implements AuthorizationContextTokenGenerator {
         JWTClaimsSet claimsSet = new JWTClaimsSet();
         claimsSet.setIssuer(API_GATEWAY_ID);
         claimsSet.setSubject(authzUser);
-        claimsSet.setIssueTime(new Date(issuedTime));
-        claimsSet.setExpirationTime(new Date(expireIn));
+        if (OAuthServerConfiguration.getInstance().isOIDCIDTokenExpInSecs()) {
+            claimsSet.setIssueTime(new Date(issuedTime));
+            claimsSet.setExpirationTime(new Date(expireIn));
+        } else {
+            claimsSet.setIssueTime(new Date(issuedTime * 1000));
+            claimsSet.setExpirationTime(new Date(expireIn * 1000));
+        }
         claimsSet.setClaim(API_GATEWAY_ID+"/subscriber",subscriber);
         claimsSet.setClaim(API_GATEWAY_ID+"/applicationname",applicationName);
         claimsSet.setClaim(API_GATEWAY_ID+"/enduser",authzUser);

@@ -17,15 +17,7 @@
  */
 package org.wso2.carbon.identity.provider;
 
-import java.security.MessageDigest;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpSession;
-
+import net.minidev.json.JSONArray;
 import org.apache.axis2.AxisFault;
 import org.apache.axis2.context.MessageContext;
 import org.apache.axis2.transport.http.HTTPConstants;
@@ -72,7 +64,17 @@ import org.wso2.carbon.user.core.UserRealm;
 import org.wso2.carbon.user.core.UserStoreException;
 import org.wso2.carbon.user.core.UserStoreManager;
 import org.wso2.carbon.user.core.claim.Claim;
+import org.wso2.carbon.user.core.util.UserCoreUtil;
 import org.wso2.carbon.utils.multitenancy.MultitenantUtils;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
+import java.security.MessageDigest;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.StringTokenizer;
 
 /**
  * The OpenID Provider service class. 
@@ -83,6 +85,9 @@ import org.wso2.carbon.utils.multitenancy.MultitenantUtils;
 public class OpenIDProviderService {
 
 	protected Log log = LogFactory.getLog(OpenIDProviderService.class);
+    private static final String MULTI_ATTRIBUTE_SEPARATOR = "MultiAttributeSeparator";
+
+    private String userAttributeSeparator = ",";
 
 	/**
 	 * Authenticates users with their OpenID Identifier and password
@@ -733,7 +738,7 @@ public class OpenIDProviderService {
 	 * @throws Exception
 	 */
 	private OpenIDClaimDTO[] getOpenIDClaimValues(String openId, String profileId,
-	                                              List<String> claimList) throws Exception {
+	                                              List<String> claimList) throws Exception{
 		UserStoreManager userStore = null;
 		Map<String, String> claimValues = null;
 		OpenIDClaimDTO[] claims = null;
@@ -756,16 +761,38 @@ public class OpenIDProviderService {
 		              userStore.getUserClaimValues(tenatUser, claimList.toArray(claimArray),
 		                                           profileId);
 
+        String claimSeparator = claimValues.get(MULTI_ATTRIBUTE_SEPARATOR);
+        if (claimSeparator != null) {
+            userAttributeSeparator = claimSeparator;
+            claimValues.remove(MULTI_ATTRIBUTE_SEPARATOR);
+        }
+
 		claims = new OpenIDClaimDTO[claimValues.size()];
 		int i = 0;
 		claimManager = IdentityClaimManager.getInstance();
 		claimData = claimManager.getAllSupportedClaims(realm);
 
+        JSONArray values;
 		for (Claim element : claimData) {
 			if (claimValues.containsKey(element.getClaimUri())) {
+                values = new JSONArray();
 				dto = new OpenIDClaimDTO();
 				dto.setClaimUri(element.getClaimUri());
-				dto.setClaimValue(claimValues.get(element.getClaimUri()));
+
+                //Adding multiple claims to a json array
+                String value = claimValues.get(element.getClaimUri());
+                if (userAttributeSeparator != null && value.contains(userAttributeSeparator)) {
+                    StringTokenizer st = new StringTokenizer(value, userAttributeSeparator);
+                    while (st.hasMoreElements()) {
+                        String attValue = st.nextElement().toString();
+                        if (attValue != null && attValue.trim().length() > 0) {
+                            values.add(attValue);
+                        }
+                    }
+                } else {
+                    values.add(value);
+                }
+				dto.setClaimValue(values.toJSONString());
 				dto.setDisplayTag(element.getDisplayTag());
 				dto.setDescription(element.getDescription());
 				claims[i++] = dto;

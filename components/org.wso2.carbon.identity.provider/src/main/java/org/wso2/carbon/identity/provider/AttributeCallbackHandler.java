@@ -41,16 +41,27 @@ import org.wso2.carbon.identity.core.util.IdentityTenantUtil;
 import org.wso2.carbon.user.core.UserCoreConstants;
 import org.wso2.carbon.user.core.UserStoreManager;
 import org.wso2.carbon.user.core.claim.Claim;
+import org.wso2.carbon.user.core.util.UserCoreUtil;
 import org.wso2.carbon.utils.multitenancy.MultitenantUtils;
 
 import javax.xml.namespace.QName;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.StringTokenizer;
 
 public class AttributeCallbackHandler implements SAMLCallbackHandler {
 
     private static Log log = LogFactory.getLog(AttributeCallbackHandler.class);
     protected Map<String, RequestedClaimData> requestedClaims = new HashMap<String, RequestedClaimData>();
     protected Map<String, String> requestedClaimValues = new HashMap<String, String>();
+
+    private static final String MULTI_ATTRIBUTE_SEPARATOR = "MultiAttributeSeparator";
+
+    private String userAttributeSeparator = ",";
 
     protected Map<String, Claim> supportedClaims = new HashMap<String, Claim>();
 
@@ -297,6 +308,12 @@ public class AttributeCallbackHandler implements SAMLCallbackHandler {
             } else {
                 mapValues = requestedClaimValues;
             }
+
+            String claimSeparator = mapValues.get(MULTI_ATTRIBUTE_SEPARATOR);
+            if (claimSeparator != null) {
+                userAttributeSeparator = claimSeparator;
+                mapValues.remove(MULTI_ATTRIBUTE_SEPARATOR);
+            }
 			
             ite = requestedClaims.values().iterator();
             while (ite.hasNext()) {
@@ -325,13 +342,22 @@ public class AttributeCallbackHandler implements SAMLCallbackHandler {
                                 name = nameSpace;
                             }
                         }
-                        String[]  values;
-                        if(claimData.getValue().contains(",")){
-                            values = claimData.getValue().split(",");
+
+                        List<String> values = new ArrayList<String>();
+
+                        if(claimData.getValue().contains(userAttributeSeparator)){
+                            StringTokenizer st = new StringTokenizer(claimData.getValue(), userAttributeSeparator);
+                            while (st.hasMoreElements()) {
+                                String attValue = st.nextElement().toString();
+                                if (attValue != null && attValue.trim().length() > 0) {
+                                    values.add(attValue);
+                                }
+                            }
                         } else {
-                            values = new String[]{claimData.getValue()};
+                            values.add(claimData.getValue());
                         }
-                        attribute = new SAMLAttribute(name, nameSpace, null, -1, Arrays.asList(values));
+
+                        attribute = new SAMLAttribute(name, nameSpace, null, -1, values);
                         callback.addAttributes(attribute);                        
                     }
                 }
@@ -340,6 +366,7 @@ public class AttributeCallbackHandler implements SAMLCallbackHandler {
             throw new IdentityProviderException(e.getMessage(), e);
         }
     }
+    
     protected RequestedClaimData getRequestedClaim() {
         return new RequestedClaimData();
     }

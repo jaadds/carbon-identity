@@ -137,7 +137,7 @@ public abstract class FrameworkConstants {
     public final static String SIGNATURE_ALGORITHM = "SigAlg";
     public final static String SAML_REQUEST = "SAMLRequest";
     public final static String SIGNATURE = "Signature";
-
+    
     public final static String AUTH_ENDPOINT_QUERY_PARAMS_ACTION_INCLUDE = "include";
     public final static String AUTH_ENDPOINT_QUERY_PARAMS_ACTION_EXCLUDE = "exclude";
 

@@ -16,8 +16,9 @@
 
 package org.wso2.carbon.identity.provider.openid;
 
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.util.Date;
-import java.util.Random;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -48,6 +49,7 @@ public class OpenIDServerAssociationStore extends
 
 	private static Log log = LogFactory
 			.getLog(OpenIDServerAssociationStore.class);
+	private static final String SHA_1_PRNG = "SHA1PRNG";
 
 	/**
 	 * Here we instantiate a DAO to access the identity database.
@@ -57,7 +59,12 @@ public class OpenIDServerAssociationStore extends
 	 *            if this association store stores private associations
 	 */
 	public OpenIDServerAssociationStore(String associationsType) {
-		storeId = new Random().nextInt(9999);
+		try {
+			SecureRandom secureRandom = SecureRandom.getInstance(SHA_1_PRNG);
+			storeId = secureRandom.nextInt(9999);
+		} catch (NoSuchAlgorithmException e) {
+			throw new RuntimeException("SHA1PRNG algorithm could not be found.");
+		}
 		timestamp = Long.toString(new Date().getTime());
 		counter = 0;
 		cache = OpenIDAssociationCache.getCacheInstance();

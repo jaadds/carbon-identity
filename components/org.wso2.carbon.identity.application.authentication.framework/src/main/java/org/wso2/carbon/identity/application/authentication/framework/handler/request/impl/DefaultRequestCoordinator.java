@@ -54,13 +54,14 @@ public class DefaultRequestCoordinator implements RequestCoordinator {
         try {
             AuthenticationContext context = null;
             AuthenticationRequestCacheEntry authRequest = null;
-            String sessionDataKey = request.getParameter("sessionDataKey");
-
-            boolean returning = false;
+	        String sessionDataKey =  request.getParameter("sessionDataKey");
+	        boolean returning = false;
+	        
             // Check whether this is the start of the authentication flow.
             // 'type' parameter should be present if so. This parameter contains
             // the request type (e.g. samlsso) set by the calling servlet.
             // TODO: use a different mechanism to determine the flow start.
+
             if (request != null && request.getParameter("type") != null) {
                 // Retrieve AuthenticationRequestCache Entry which is stored stored from servlet.
                 AuthenticationRequestCacheKey cacheKey = new AuthenticationRequestCacheKey(
@@ -81,14 +82,13 @@ public class DefaultRequestCoordinator implements RequestCoordinator {
 
             if (context != null) {
                 context.setReturning(returning);
-
+                
                 // if this is the flow start, store the original request in the context
                 if (!context.isReturning()) {
                     if (authRequest != null) {
                         context.setAuthenticationRequest(authRequest.getAuthenticationRequest());
                     }
-                }
-
+                } 
                 
                 if (!context.isLogoutRequest()) {
                     FrameworkUtils.getAuthenticationRequestHandler().handle(request, response,
@@ -133,7 +133,6 @@ public class DefaultRequestCoordinator implements RequestCoordinator {
         if (log.isDebugEnabled()) {
             log.debug("Initializing the flow");
         }
-
 
         // "sessionDataKey" - calling servlet maintains its state information
         // using this
@@ -185,7 +184,7 @@ public class DefaultRequestCoordinator implements RequestCoordinator {
         context.setRequestType(requestType);
         context.setRelyingParty(relyingParty);
         context.setTenantDomain(tenantDomain);
-
+        
         // generate a new key to hold the context data object
         String contextId = UUIDGenerator.generateUUID();
         context.setContextIdentifier(contextId);
@@ -193,8 +192,7 @@ public class DefaultRequestCoordinator implements RequestCoordinator {
         if (log.isDebugEnabled()) {
             log.debug("Framework contextId: " + contextId);
         }
-
-
+        
         // if this a logout request from the calling servlet
         if (request.getParameter(FrameworkConstants.RequestParams.LOGOUT) != null) {
 
@@ -226,7 +224,7 @@ public class DefaultRequestCoordinator implements RequestCoordinator {
 
         findPreviousAuthenticatedSession(request, context);
         buildOutboundQueryString(request, context);
-
+        
         return context;
     }
 
@@ -304,14 +302,15 @@ public class DefaultRequestCoordinator implements RequestCoordinator {
                 }
             }
         }
-
+        
         context.setServiceProviderName(sequenceConfig.getApplicationConfig().getApplicationName());
+
         // set the sequence for the current authentication/logout flow
         context.setSequenceConfig(sequenceConfig);
     }
-
+    
     private void buildOutboundQueryString(HttpServletRequest request, AuthenticationContext context) {
-
+        
         // Build the outbound query string that will be sent to the authentication endpoint and
         // federated IdPs
         String outboundQueryString = FrameworkUtils.getQueryStringWithConfiguredParams(request);

@@ -28,8 +28,8 @@ import org.wso2.carbon.identity.application.authentication.framework.Authenticat
 import org.wso2.carbon.identity.application.authentication.framework.config.model.ExternalIdPConfig;
 import org.wso2.carbon.identity.application.authentication.framework.config.model.SequenceConfig;
 import org.wso2.carbon.identity.application.authentication.framework.model.AuthenticatedIdPData;
-import org.wso2.carbon.identity.application.common.model.ClaimMapping;
 import org.wso2.carbon.identity.application.authentication.framework.model.AuthenticationRequest;
+import org.wso2.carbon.identity.application.common.model.ClaimMapping;
 
 /**
  * This class is used for holding data about the
@@ -60,11 +60,11 @@ public class AuthenticationContext implements Serializable {
     private String serviceProviderName;
     private String contextIdIncludedQueryParams;
     private String currentAuthenticator;
+    private AuthenticationRequest authenticationRequest;
     
     private boolean forceAuthenticate;
     private boolean reAuthenticate;
     private boolean passiveAuthenticate;
-    private AuthenticationRequest authenticationRequest;
     
     private Map<String, AuthenticatedIdPData> previousAuthenticatedIdPs = new HashMap<String, AuthenticatedIdPData>();
     private Map<String, AuthenticatedIdPData> currentAuthenticatedIdPs = new HashMap<String, AuthenticatedIdPData>();

@@ -131,16 +131,7 @@ public class IdentityProviderService extends AbstractAdmin {
         HttpServletRequest request = (HttpServletRequest) msgContext
                 .getProperty(HTTPConstants.MC_HTTP_SERVLETREQUEST);
         HttpSession httpSession = request.getSession(false);
-        
-        if (username.contains("@")) {
-            if (MultitenantUtils.isEmailUserName()) {
-                String[] partitionedUserName = username.trim().split("@");
-                username = partitionedUserName[0]+"@"+partitionedUserName[1];
-            } else {
-                username = username.substring(0, username.indexOf("@"));
-            }
-        }
-        
+        username = MultitenantUtils.getTenantAwareUsername(username);
         if (httpSession != null) {
             String userName = (String) httpSession.getAttribute(ServerConstants.USER_LOGGED_IN);
             if (!username.equals(userName)) {
